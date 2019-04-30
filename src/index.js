@@ -1,6 +1,7 @@
 import React from 'react'
 import SubX from 'subx'
 import * as R from 'ramda'
+import _ from 'lodash'
 
 export class Component extends React.Component {
   constructor (props) {
@@ -14,9 +15,9 @@ export class Component extends React.Component {
     const render = this.render.bind(this)
     this.render = () => {
       clearSubscription()
-      const { result, stream$ } = SubX.runAndMonitor(SubX.create(props), render)
+      const { result, stream$ } = SubX.runAndMonitor(props.store, render)
       this.__subscription__ = stream$.subscribe(event => {
-        if (event.type === 'STALE' && R.equals(R.path(event.path, props), event.cache)) {
+        if (event.type === 'STALE' && R.equals(R.path(event.path, props.store), event.cache)) {
           return
         }
         clearSubscription()
@@ -34,8 +35,13 @@ export class Component extends React.Component {
       this.componentWillUnmount = () => clearSubscription()
     }
     this.shouldComponentUpdate = (nextProps, nextState) => {
-      return nextState !== this.state ||
-          R.pipe(R.union, R.any(k => this.props[k] !== nextProps[k]))(R.keys(this.props), R.keys(nextProps))
+      if (!_.isEqual(this.state, nextState)) {
+        return true
+      }
+      let keys = _.without(Object.keys(nextProps), 'store')
+      let old = _.pick(this.props, keys)
+      let nn = _.pick(nextProps, keys)
+      return !_.isEqual(old, nn)
     }
   }
 }
